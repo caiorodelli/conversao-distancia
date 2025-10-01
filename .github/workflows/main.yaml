@@ -29,6 +29,7 @@ jobs:
             --platform linux/amd64,linux/arm64 \
             --push \
             -t 319700097359.dkr.ecr.us-east-2.amazonaws.com/claude-app:latest 
+            .
 
       - name: Deploy to AWS Fargate
         run: |
