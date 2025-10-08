@@ -2,37 +2,27 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Cluster ECS
 resource "aws_ecs_cluster" "app_cluster" {
   name = var.ecs_cluster_name
 }
 
-resource "aws_iam_role" "ecs_task_execution_role" {
+# 👉 Aqui trocamos o resource por data, pois a Role já existe
+data "aws_iam_role" "ecs_task_execution_role" {
   name = var.ecs_execution_role_name
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [{
-      Effect = "Allow",
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      },
-      Action = "sts:AssumeRole"
-    }]
-  })
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
+# 👉 Como a role já existe, você não precisa anexar política de novo
+# Remova completamente o bloco aws_iam_role_policy_attachment
 
+# Task Definition
 resource "aws_ecs_task_definition" "app_task" {
   family                   = var.ecs_task_family
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  execution_role_arn       = data.aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
     {
@@ -49,6 +39,7 @@ resource "aws_ecs_task_definition" "app_task" {
   ])
 }
 
+# ECS Service
 resource "aws_ecs_service" "app_service" {
   name            = var.ecs_service_name
   cluster         = aws_ecs_cluster.app_cluster.id
@@ -62,6 +53,7 @@ resource "aws_ecs_service" "app_service" {
     security_groups  = [var.security_group_id]
   }
 
-  depends_on = [aws_iam_role_policy_attachment.ecs_execution_policy]
+  # 👇 Removemos a dependência, pois não existe mais o attachment
+  depends_on = [aws_ecs_task_definition.app_task]
 }
 
